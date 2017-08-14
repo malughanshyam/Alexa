@@ -2,6 +2,15 @@
  * Created by gmalu on 8/13/17.
  */
 
+
+/*
+
+Handle Ambiguous topics
+ https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&exsentences=4&titles=Alexa&callback=?
+
+ Exsentences should ignore /n
+
+ */
 $( document ).ready(function() {
 
     $("#sqBtn").click(function(){
@@ -18,11 +27,13 @@ $( document ).ready(function() {
 
 function searchWiki(){
     sq = $('#sqInput').val();
-    wikiOutput = wikiGET(sq);
+    wikiOutput = wikiGET(sq, function (output){
+        //console.log("Output:" + output)
+        $("#output").text(output);
+    });
 }
 
-
-function wikiGET(sq) {
+function wikiGET(sq, callback) {
     var wikiSearchURL = "https://en.wikipedia.org/w/api.php" +
         "?action=query" +
         '&prop=extracts' +
@@ -38,38 +49,30 @@ function wikiGET(sq) {
     $("#URL").text(wikiSearchURL);
 
     $.getJSON(wikiSearchURL, function(result){
-        $("#data").text(result);
-        console.log(result);
-        extract = ""
+        $("#data").text(JSON.stringify(result, undefined, 2));
+        //console.log(result);
         extract = getValueByRecursion(result, "extract")
-        spitOutput(extract);
-
-        /*
-        $.each(result, function(i, field){
-            $("#data").append(field);
-            console.log("i" + i);
-            console.log(field);
-        });
-        */
+        callback(extract);
     });
 }
 
-function spitOutput(output){
-    $("#output").text(output);
-}
-
-
-//-------- Helper function ------- //
 function getValueByRecursion(dataJson, matchKey){
     if (dataJson.hasOwnProperty(matchKey)){
-        //console.log(dataJson[matchKey]);
         return dataJson[matchKey];
     }
 
     for (var key in dataJson) {
         if (dataJson.hasOwnProperty(key) && dataJson[key] instanceof Object) {
-            //console.log(key + '->' + dataJson[key]);
-            return getValueByRecursion(dataJson[key], matchKey);
+            /*
+            console.log();
+            console.log(key + '->')
+            console.log(JSON.stringify(dataJson[key], undefined, 2));
+            console.log();
+            */
+            retVal = getValueByRecursion(dataJson[key], matchKey);
+            if (retVal){
+                return retVal;
+            }
         }
     }
     return "";
@@ -96,8 +99,6 @@ function testGet(sq) {
     });
 
 }
-
-
 
 function testData(){
     var data = `{
@@ -129,6 +130,32 @@ function testData(){
 
 
 
+function testParser(){
+    t1 = {"t11":"vt11", "t12":"vt12"};
+    t2 = {"t21":"vt21", "t22":"vt22"}
+    t={"n":t1, "p":t2}
+
+    t = `{
+        "normalized": [
+        {
+            "from": "cricket",
+            "to": "Cricket"
+        }
+    ],
+        "pages": {
+        "25675557": {
+            "pageid": 25675557,
+                "ns": 0,
+                "title": "Cricket",
+                "extract": "Cricket is a bat-and-ball game played between two teams of eleven players each on a cricket field, at the centre of which is a rectangular 22-yard-long pitch with a target called the wicket (a set of three wooden stumps topped by two bails) at each end. Each phase of play is called an innings during which one team bats, attempting to score as many runs as possible, whilst their opponents field. Depending on the type of match, the teams have one or two innings apiece and, when the first innings ends, the teams swap roles for the next innings. Except in matches which result in a draw, the winning team is the one that scores the most runs, including any extras gained."
+        }
+    }
+    }`;
+
+    t = JSON.parse(t);
+    console.log(JSON.stringify(t, undefined, 2))
+    console.log(getValueByRecursion(t,"extract"));
+}
 
 
 
