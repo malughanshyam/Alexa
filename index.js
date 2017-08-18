@@ -3,8 +3,7 @@
  */
 
 'use strict';
-// Wiki =====================================================================================================*/
-
+//=====================================================================================================*/
 
 var SKILL_NAME = "Wiki";
 var welcomeOutput = "Welcome to Wiki. Just say Wiki San Francisco or Wiki anything.";
@@ -12,14 +11,12 @@ var welcomeReprompt = "Just say Wiki San Francisco or Wiki anything or Stop";
 var STOP_MESSAGE = "Goodbye!";
 var speechOutput;
 
-
-// Skill Code =======================================================================================================
+//=======================================================================================================
 
 var Alexa = require('alexa-sdk');
 var request = require("request");
 
 var appId = "amzn1.ask.skill.bb90bf1c-6cda-40fc-b160-f8681f8128c4";
-
 
 exports.handler = function (event, context) {
     try {
@@ -54,19 +51,19 @@ exports.handler = function (event, context) {
     }
 };
 
-function onSessionStarted(sessionStartedRequest, session) {
+var onSessionStarted = function onSessionStarted(sessionStartedRequest, session) {
 
 }
 
-function onLaunch(launchRequest, session, callback) {
+var onLaunch = function onLaunch(launchRequest, session, callback) {
     getWelcomeResponse(callback)
 }
 
-function onSessionEnded(sessionEndedRequest, session) {
+var onSessionEnded  = function onSessionEnded(sessionEndedRequest, session) {
     buildSpeechletResponseWithoutCard(STOP_MESSAGE, "", true);
 }
 
-function onIntent(intentRequest, session, callback) {
+var onIntent = function onIntent(intentRequest, session, callback) {
 
     var intent = intentRequest.intent;
     var intentName = intentRequest.intent.name;
@@ -81,7 +78,7 @@ function onIntent(intentRequest, session, callback) {
     }
 }
 
-function getWelcomeResponse(callback) {
+var getWelcomeResponse = function getWelcomeResponse(callback) {
     //this.emit(':ask', welcomeOutput, welcomeReprompt);
     var speechOutput = welcomeOutput;
 
@@ -100,14 +97,14 @@ function getWelcomeResponse(callback) {
 
 }
 
-function handleWikiSearchIntent(intentRequest, session, callback) {
+var handleWikiSearchIntent = function handleWikiSearchIntent(intentRequest, session, callback) {
 
     console.log("Entering handleWikiSearchIntent");
     var speechOutput = "We have an error"
 
     getSearchTerm(intentRequest, function(sq){
         console.log("got search term: " + sq);
-        wikiGET(sq, function(data) {
+        searchWiki(sq, function(data) {
             console.log ("completed wikiGet");
             console.log(data);
             if (data != "ERROR") {
@@ -119,16 +116,13 @@ function handleWikiSearchIntent(intentRequest, session, callback) {
 
 }
 
-
-function handleHelpIntent(intentRequest, session, callback) {
+var handleHelpIntent = function handleHelpIntent(intentRequest, session, callback) {
     callback(session.attributes, buildSpeechletResponseWithoutCard(welcomeOutput, welcomeReprompt, true));
 }
 
-function handleCancelIntent(intentRequest, session, callback) {
+var handleCancelIntent = function handleCancelIntent(intentRequest, session, callback) {
     callback(session.attributes, buildSpeechletResponseWithoutCard(STOP_MESSAGE, "", true));
 }
-
-// Helper Functions  =================================================================================================
 
 var getSearchTerm = function getSearchTerm (intentRequest, callback){
     //Now let's recap the trip
@@ -148,35 +142,22 @@ var getSearchTerm = function getSearchTerm (intentRequest, callback){
         searchTerm = city;
     }
 
-    console.log("search term: " + searchTerm);
+    //console.log("search term: " + searchTerm);
     callback(searchTerm);
 };
 
 var isSlotValid = function isSlotValid (request, slotName){
     var slot = request.intent.slots[slotName];
-    console.log("request = "+JSON.stringify(request)); //uncomment if you want to see the request
     var slotValue;
-
-    //if we have a slot, get the text and store it into speechOutput
     if (slot && slot.value) {
-        //we have a value in the slot
-        slotValue = slot.value.toLowerCase(); //TODO Camel case
+        slotValue = slot.value; //TODO Camel case
         return slotValue;
     } else {
-        //we didn't get a value in the slot.
         return false;
     }
 };
 
-var searchWiki = function searchWiki (sq, speechOutput){
-    var wikiOutput = wikiGET(sq, function (output){
-        //$("#output").text(output);
-        console.log(output);
-        speechOutput = output;
-    });
-};
-
-var wikiGET = function wikiGET (sq, callback) {
+var searchWiki = function searchWiki (sq, callback) {
     var wikiSearchURL = "https://en.wikipedia.org/w/api.php" +
         "?action=query" +
         '&prop=extracts' +
@@ -185,50 +166,35 @@ var wikiGET = function wikiGET (sq, callback) {
         '&format=json' +
         '&exsentences=4' +
         '&titles=' +
-        sq +
-        '&callback=?';
+        sq;
 
     console.log("GET: " + wikiSearchURL);
 
-    getWikiResponse(wikiSearchURL, callback);
+    getWikiResponse(sq, wikiSearchURL, callback);
 
 };
 
-var getWikiResponse = function getWikiResponse(callback){
+var getWikiResponse = function getWikiResponse(sq, wikiSearchURL, callback){
     request.get(wikiSearchURL, function(error, response, result) {
-        console.log("response: " + response);
-        console.log("error: " + error);
-        console.log("result: " + result);
-        console.log(JSON.stringify(result, undefined, 2));
-        console.log(result);
-        //var d = JSON.parse(body)
-        console.log(JSON.stringify(result, undefined, 2));
-        var extract = getValueByRecursion(result, "extract");
+        var data = JSON.parse(result);
+        console.log("Wiki Response:" + JSON.stringify(data, undefined, 2));
+
+        var extract = getValueByRecursion(data, "extract");
         if (extract.length > 0){
             callback(extract);
         } else {
-            speechOutput = 'I was unable to find ' + sq + ' ' + '. Please try another search';
-            console.log(speechOutput);
-            callback("Error");
+            speechOutput = 'I was unable to find ' + sq  + '. Please try another search';
+            callback(speechOutput);
         }
-
     });
 }
-
 
 var getValueByRecursion = function getValueByRecursionF (dataJson, matchKey){
     if (dataJson.hasOwnProperty(matchKey)){
         return dataJson[matchKey];
     }
-
     for (const key in dataJson) {
         if (dataJson.hasOwnProperty(key) && dataJson[key] instanceof Object) {
-            /*
-             console.log();
-             console.log(key + '->')
-             console.log(JSON.stringify(dataJson[key], undefined, 2));
-             console.log();
-             */
             const retVal = getValueByRecursionF(dataJson[key], matchKey);
             if (retVal){
                 return retVal;
@@ -238,10 +204,7 @@ var getValueByRecursion = function getValueByRecursionF (dataJson, matchKey){
     return "";
 };
 
-//=========================================================================================================================================
-
-
-function buildSpeechletResponse(title, output, repromptText, shouldEndSession) {
+var buildSpeechletResponse = function buildSpeechletResponse(title, output, repromptText, shouldEndSession) {
     return {
         outputSpeech: {
             type: "PlainText",
@@ -262,7 +225,7 @@ function buildSpeechletResponse(title, output, repromptText, shouldEndSession) {
     };
 }
 
-function buildSpeechletResponseWithoutCard(output, repromptText, shouldEndSession) {
+var buildSpeechletResponseWithoutCard = function buildSpeechletResponseWithoutCard(output, repromptText, shouldEndSession) {
     return {
         outputSpeech: {
             type: "PlainText",
@@ -278,7 +241,7 @@ function buildSpeechletResponseWithoutCard(output, repromptText, shouldEndSessio
     };
 }
 
-function buildResponse(sessionAttributes, speechletResponse) {
+var buildResponse = function buildResponse(sessionAttributes, speechletResponse) {
     return {
         version: "1.0",
         sessionAttributes: sessionAttributes,
