@@ -1,39 +1,182 @@
 /**
- * Created by gmalu on 8/13/17.
+ * Created by gmalu on 8/17/17.
  */
 
+'use strict';
+// Wiki =====================================================================================================*/
 
-/*
 
-Handle Ambiguous topics
- https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&exsentences=4&titles=Alexa&callback=?
+var SKILL_NAME = "Wiki";
+var welcomeOutput = "Welcome to Wiki. Just say Wiki San Francisco or Wiki anything.";
+var welcomeReprompt = "Just say Wiki San Francisco or Wiki anything or Stop";
+var STOP_MESSAGE = "Goodbye!";
+var speechOutput;
 
- Exsentences should ignore /n
 
- */
-$( document ).ready(function() {
+// Skill Code =======================================================================================================
 
-    $("#sqBtn").click(function(){
-        searchWiki();
-    });
+var Alexa = require('alexa-sdk');
+var request = require("request");
 
-    $("#sqInput").on('keyup', function (e) {
-        if (e.keyCode == 13) {
-            $("#sqBtn").click();
+var appId = "amzn1.ask.skill.bb90bf1c-6cda-40fc-b160-f8681f8128c4";
+
+
+exports.handler = function (event, context) {
+    try {
+        console.log("event.session.application.applicationId=" + event.session.application.applicationId);
+
+        if (event.session.application.applicationId !== appId) {
+            context.fail("Invalid Application ID");
         }
-    });
 
-});
+        if (event.session.new) {
+            onSessionStarted({requestId: event.request.requestId}, event.session);
+        }
 
-function searchWiki(){
-    sq = $('#sqInput').val();
-    wikiOutput = wikiGET(sq, function (output){
-        //console.log("Output:" + output)
-        $("#output").text(output);
-    });
+        if (event.request.type === "LaunchRequest") {
+            onLaunch(event.request,
+                event.session,
+                function callback(sessionAttributes, speechletResponse) {
+                    context.succeed(buildResponse(sessionAttributes, speechletResponse));
+                });
+        } else if (event.request.type === "IntentRequest") {
+            onIntent(event.request,
+                event.session,
+                function callback(sessionAttributes, speechletResponse) {
+                    context.succeed(buildResponse(sessionAttributes, speechletResponse));
+                });
+        } else if (event.request.type === "SessionEndedRequest") {
+            onSessionEnded(event.request, event.session);
+            context.succeed();
+        }
+    } catch (e) {
+        context.fail("Exception: " + e);
+    }
+};
+
+function onSessionStarted(sessionStartedRequest, session) {
+
 }
 
-function wikiGET(sq, callback) {
+function onLaunch(launchRequest, session, callback) {
+    getWelcomeResponse(callback)
+}
+
+function onSessionEnded(sessionEndedRequest, session) {
+    buildSpeechletResponseWithoutCard(STOP_MESSAGE, "", true);
+}
+
+function onIntent(intentRequest, session, callback) {
+
+    var intent = intentRequest.intent;
+    var intentName = intentRequest.intent.name;
+
+    // dispatch custom intents to handlers here
+    if (intentName == "WikiSearchIntent") {
+        handleWikiSearchIntent(intentRequest, session, callback);
+    } else if (intentName == 'AMAZON.HelpIntent') {
+        handleHelpIntent(intentRequest, session, callback);
+    } else if (intentName == 'AMAZON.CancelIntent' || intentName == 'AMAZON.StopIntent') {
+        handleCancelIntent(intentRequest, session, callback);
+    }
+}
+
+function getWelcomeResponse(callback) {
+    //this.emit(':ask', welcomeOutput, welcomeReprompt);
+    var speechOutput = welcomeOutput;
+
+    var reprompt = welcomeReprompt;
+
+    var header = SKILL_NAME;
+
+    var shouldEndSession = false;
+
+    var sessionAttributes = {
+        "speechOutput" : speechOutput,
+        "repromptText" : reprompt
+    }
+
+    callback(sessionAttributes, buildSpeechletResponse(header, speechOutput, reprompt, shouldEndSession))
+
+}
+
+function handleWikiSearchIntent(intentRequest, session, callback) {
+
+    console.log("Entering handleWikiSearchIntent");
+    var speechOutput = "We have an error"
+
+    getSearchTerm(intentRequest, function(sq){
+        console.log("got search term: " + sq);
+        wikiGET(sq, function(data) {
+            console.log ("completed wikiGet");
+            console.log(data);
+            if (data != "ERROR") {
+                var speechOutput = data
+            }
+            callback(session.attributes, buildSpeechletResponseWithoutCard(speechOutput, "", true))
+        } );
+    });
+
+}
+
+
+function handleHelpIntent(intentRequest, session, callback) {
+    callback(session.attributes, buildSpeechletResponseWithoutCard(welcomeOutput, welcomeReprompt, true));
+}
+
+function handleCancelIntent(intentRequest, session, callback) {
+    callback(session.attributes, buildSpeechletResponseWithoutCard(STOP_MESSAGE, "", true));
+}
+
+// Helper Functions  =================================================================================================
+
+var getSearchTerm = function getSearchTerm (intentRequest, callback){
+    //Now let's recap the trip
+    var actor= isSlotValid(intentRequest, "actor");
+    var artist= isSlotValid(intentRequest, "artist");
+    var country= isSlotValid(intentRequest, "country");
+    var city= isSlotValid(intentRequest, "city");
+
+    var searchTerm = "";
+    if (actor){
+        searchTerm = actor;
+    } else if (artist){
+        searchTerm = artist;
+    } else if (country){
+        searchTerm = country;
+    } else if (city) {
+        searchTerm = city;
+    }
+
+    console.log("search term: " + searchTerm);
+    callback(searchTerm);
+};
+
+var isSlotValid = function isSlotValid (request, slotName){
+    var slot = request.intent.slots[slotName];
+    console.log("request = "+JSON.stringify(request)); //uncomment if you want to see the request
+    var slotValue;
+
+    //if we have a slot, get the text and store it into speechOutput
+    if (slot && slot.value) {
+        //we have a value in the slot
+        slotValue = slot.value.toLowerCase(); //TODO Camel case
+        return slotValue;
+    } else {
+        //we didn't get a value in the slot.
+        return false;
+    }
+};
+
+var searchWiki = function searchWiki (sq, speechOutput){
+    var wikiOutput = wikiGET(sq, function (output){
+        //$("#output").text(output);
+        console.log(output);
+        speechOutput = output;
+    });
+};
+
+var wikiGET = function wikiGET (sq, callback) {
     var wikiSearchURL = "https://en.wikipedia.org/w/api.php" +
         "?action=query" +
         '&prop=extracts' +
@@ -46,116 +189,99 @@ function wikiGET(sq, callback) {
         '&callback=?';
 
     console.log("GET: " + wikiSearchURL);
-    $("#URL").text(wikiSearchURL);
 
-    $.getJSON(wikiSearchURL, function(result){
-        $("#data").text(JSON.stringify(result, undefined, 2));
-        //console.log(result);
-        extract = getValueByRecursion(result, "extract")
-        callback(extract);
+    getWikiResponse(wikiSearchURL, callback);
+
+};
+
+var getWikiResponse = function getWikiResponse(callback){
+    request.get(wikiSearchURL, function(error, response, result) {
+        console.log("response: " + response);
+        console.log("error: " + error);
+        console.log("result: " + result);
+        console.log(JSON.stringify(result, undefined, 2));
+        console.log(result);
+        //var d = JSON.parse(body)
+        console.log(JSON.stringify(result, undefined, 2));
+        var extract = getValueByRecursion(result, "extract");
+        if (extract.length > 0){
+            callback(extract);
+        } else {
+            speechOutput = 'I was unable to find ' + sq + ' ' + '. Please try another search';
+            console.log(speechOutput);
+            callback("Error");
+        }
+
     });
 }
 
-function getValueByRecursion(dataJson, matchKey){
+
+var getValueByRecursion = function getValueByRecursionF (dataJson, matchKey){
     if (dataJson.hasOwnProperty(matchKey)){
         return dataJson[matchKey];
     }
 
-    for (var key in dataJson) {
+    for (const key in dataJson) {
         if (dataJson.hasOwnProperty(key) && dataJson[key] instanceof Object) {
             /*
-            console.log();
-            console.log(key + '->')
-            console.log(JSON.stringify(dataJson[key], undefined, 2));
-            console.log();
-            */
-            retVal = getValueByRecursion(dataJson[key], matchKey);
+             console.log();
+             console.log(key + '->')
+             console.log(JSON.stringify(dataJson[key], undefined, 2));
+             console.log();
+             */
+            const retVal = getValueByRecursionF(dataJson[key], matchKey);
             if (retVal){
                 return retVal;
             }
         }
     }
     return "";
+};
 
-}
+//=========================================================================================================================================
 
-function testGet(sq) {
-    var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&exsentences=4';
-    url += '&titles=' + sq;
 
-    var http = require('https');
-    var options = {
-        host: url,
-        port: 80,
-        path: '/',
-        agent: false
-    };
-
-    http.get(options, function (res) {
-        console.log("Response: " + res.statusCode);
-        console.log(res.statusCode);
-    }).on('error', function (e) {
-        console.log("Error message: " + e.message);
-    });
-
-}
-
-function testData(){
-    var data = `{
-    "batchcomplete": "",
-        "query": {
-        "pages": {
-            "19376355": {
-                "pageid": 19376355,
-                    "ns": 0,
-                    "title": "Ganesha",
-                    "extract": "Ganesha (; Sanskrit: गणेश, Gaṇeśa;  listen ), also known as Ganapati, Vinayaka and Binayak, is one of the best-known and most worshiped deities in the Hindu pantheon. His image is found throughout India, Sri Lanka, Thailand and Nepal. Hindu sects worship him regardless of affiliations. Devotion to Ganesha is widely diffused and extends to Jains and Buddhists."
+function buildSpeechletResponse(title, output, repromptText, shouldEndSession) {
+    return {
+        outputSpeech: {
+            type: "PlainText",
+            text: output
+        },
+        card: {
+            type: "Simple",
+            title: title,
+            content: output
+        },
+        reprompt: {
+            outputSpeech: {
+                type: "PlainText",
+                text: repromptText
             }
-        }
-    }
-}`;
-
-    /*
-     $("#data").text(data);
-     dataJson = JSON.parse(data);
-     output = getValueByRecursion(dataJson, "extract");
-
-     //$("#output").text(output);
-     //console.log(output);
-
-     //sq = "Ganesha";
-     //testGet(sq)
-     */
+        },
+        shouldEndSession: shouldEndSession
+    };
 }
 
-
-
-function testParser(){
-    t1 = {"t11":"vt11", "t12":"vt12"};
-    t2 = {"t21":"vt21", "t22":"vt22"}
-    t={"n":t1, "p":t2}
-
-    t = `{
-        "normalized": [
-        {
-            "from": "cricket",
-            "to": "Cricket"
-        }
-    ],
-        "pages": {
-        "25675557": {
-            "pageid": 25675557,
-                "ns": 0,
-                "title": "Cricket",
-                "extract": "Cricket is a bat-and-ball game played between two teams of eleven players each on a cricket field, at the centre of which is a rectangular 22-yard-long pitch with a target called the wicket (a set of three wooden stumps topped by two bails) at each end. Each phase of play is called an innings during which one team bats, attempting to score as many runs as possible, whilst their opponents field. Depending on the type of match, the teams have one or two innings apiece and, when the first innings ends, the teams swap roles for the next innings. Except in matches which result in a draw, the winning team is the one that scores the most runs, including any extras gained."
-        }
-    }
-    }`;
-
-    t = JSON.parse(t);
-    console.log(JSON.stringify(t, undefined, 2))
-    console.log(getValueByRecursion(t,"extract"));
+function buildSpeechletResponseWithoutCard(output, repromptText, shouldEndSession) {
+    return {
+        outputSpeech: {
+            type: "PlainText",
+            text: output
+        },
+        reprompt: {
+            outputSpeech: {
+                type: "PlainText",
+                text: repromptText
+            }
+        },
+        shouldEndSession: shouldEndSession
+    };
 }
 
-
-
+function buildResponse(sessionAttributes, speechletResponse) {
+    return {
+        version: "1.0",
+        sessionAttributes: sessionAttributes,
+        response: speechletResponse
+    };
+}
