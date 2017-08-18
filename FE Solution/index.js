@@ -26,16 +26,16 @@ $( document ).ready(function() {
     console.log(toTitleCase("my name, aBacaus is manish-Malu"));
 });
 
-function toTitleCase(str)
-{
-    return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+var toTitleCase = function toTitleCase(str) {
+    return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1);});
 }
+
 
 function searchWiki(){
     sq = $('#sqInput').val();
-    wikiOutput = wikiGET(sq, function (output){
+    wikiOutput = wikiGET(toTitleCase(sq), function (output){
         //console.log("Output:" + output)
-        $("#output").text(output);
+        $("#output").text(removeFirstBraces(output));
     });
 }
 
@@ -46,7 +46,7 @@ function wikiGET(sq, callback) {
         '&exintro' +
         '&explaintext' +
         '&format=json' +
-        '&exsentences=4' +
+        '&exsentences=2' +
         '&titles=' +
         sq +
         '&callback=?';
@@ -86,7 +86,7 @@ function getValueByRecursion(dataJson, matchKey){
 }
 
 function testGet(sq) {
-    var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&exsentences=4';
+    var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&exsentences=2';
     url += '&titles=' + sq;
 
     var http = require('https');
@@ -162,4 +162,7 @@ function testParser(){
 }
 
 
-
+var removeFirstBraces = function removeFirstBraces(st){
+    console.log("removeFirstBraces");
+    return st.replace(/^(.*?)\(.*?\)/, '$1');
+}

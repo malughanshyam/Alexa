@@ -6,8 +6,8 @@
 //=====================================================================================================*/
 
 var SKILL_NAME = "Wiki";
-var welcomeOutput = "Welcome to Wiki. Just say Wiki San Francisco or Wiki anything.";
-var welcomeReprompt = "Just say Wiki San Francisco or Wiki anything or Stop";
+var welcomeOutput = "Welcome to Wiki. Say something like Wiki San Francisco, or Who is Elon Musk, or Look up Aesthetic.";
+var welcomeReprompt = "Just say something like Wiki Chicago, or Look up Cricket, or Stop";
 var STOP_MESSAGE = "Goodbye!";
 var speechOutput;
 
@@ -111,14 +111,14 @@ var handleWikiSearchIntent = function handleWikiSearchIntent(intentRequest, sess
                 var speechOutput = data
             }
             //callback(session.attributes, buildSpeechletResponseWithoutCard(speechOutput, "", true))
-            callback(session.attributes, buildSpeechletResponse(SKILL_NAME + ' ' + sq, speechOutput, "", true))
+            callback(session.attributes, buildSpeechletResponse(sq, speechOutput, "", true))
         } );
     });
 
 }
 
 var handleHelpIntent = function handleHelpIntent(intentRequest, session, callback) {
-    callback(session.attributes, buildSpeechletResponseWithoutCard(welcomeOutput, welcomeReprompt, true));
+    callback(session.attributes, buildSpeechletResponseWithoutCard(welcomeOutput, welcomeReprompt, false));
 }
 
 var handleCancelIntent = function handleCancelIntent(intentRequest, session, callback) {
@@ -151,7 +151,7 @@ var searchWiki = function searchWiki (sq, callback) {
         '&exintro' +
         '&explaintext' +
         '&format=json' +
-        '&exsentences=4' +
+        '&exsentences=2' +
         '&titles=' +
         sq;
 
@@ -171,18 +171,13 @@ var getWikiResponse = function getWikiResponse(sq, wikiSearchURL, callback){
             speechOutput = 'I could not find an exact ' + sq  + '. Can you try again with a specific search?';
             callback(speechOutput);
         } else if (extract.length > 0){
-            callback(extract);
+            callback(removeFirstBraces(extract));
         } else {
             speechOutput = 'I was unable to find ' + sq  + '. Please try another search';
             callback(speechOutput);
         }
     });
 }
-
-var isBadResponse = function isBadResponse(dataStr){
-    var badStr = "may refer to:";
-    return (dataStr.indexOf(badStr) !== -1);
-};
 
 var getValueByRecursion = function getValueByRecursionF (dataJson, matchKey){
     if (dataJson.hasOwnProperty(matchKey)){
@@ -245,5 +240,14 @@ var buildResponse = function buildResponse(sessionAttributes, speechletResponse)
 }
 
 var toTitleCase = function toTitleCase(str) {
-    return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+    return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1);});
+}
+
+var isBadResponse = function isBadResponse(dataStr){
+    var badStr = "may refer to:";
+    return dataStr.endsWith(badStr);
+};
+
+var removeFirstBraces = function removeFirstBraces(st){
+    return st.replace(/^(.*?)\(.*?\)/, '$1');
 }
