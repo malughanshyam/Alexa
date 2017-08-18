@@ -23,7 +23,13 @@ $( document ).ready(function() {
         }
     });
 
+    console.log(toTitleCase("my name, aBacaus is manish-Malu"));
 });
+
+function toTitleCase(str)
+{
+    return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+}
 
 function searchWiki(){
     sq = $('#sqInput').val();

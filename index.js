@@ -103,14 +103,15 @@ var handleWikiSearchIntent = function handleWikiSearchIntent(intentRequest, sess
     var speechOutput = "We have an error"
 
     getSearchTerm(intentRequest, function(sq){
-        console.log("got search term: " + sq);
+        console.log("Search term: " + sq);
         searchWiki(sq, function(data) {
             console.log ("completed wikiGet");
             console.log(data);
             if (data != "ERROR") {
                 var speechOutput = data
             }
-            callback(session.attributes, buildSpeechletResponseWithoutCard(speechOutput, "", true))
+            //callback(session.attributes, buildSpeechletResponseWithoutCard(speechOutput, "", true))
+            callback(session.attributes, buildSpeechletResponse(SKILL_NAME + ' ' + sq, speechOutput, "", true))
         } );
     });
 
@@ -125,36 +126,22 @@ var handleCancelIntent = function handleCancelIntent(intentRequest, session, cal
 }
 
 var getSearchTerm = function getSearchTerm (intentRequest, callback){
-    //Now let's recap the trip
-    var actor= isSlotValid(intentRequest, "actor");
-    var artist= isSlotValid(intentRequest, "artist");
-    var country= isSlotValid(intentRequest, "country");
-    var city= isSlotValid(intentRequest, "city");
 
     var searchTerm = "";
-    if (actor){
-        searchTerm = actor;
-    } else if (artist){
-        searchTerm = artist;
-    } else if (country){
-        searchTerm = country;
-    } else if (city) {
-        searchTerm = city;
+    var slots = intentRequest.intent.slots;
+
+    for (const key in slots){
+        if (slots.hasOwnProperty(key)){
+            var slot = slots[key];
+            if (slot && slot.value) {
+                searchTerm = slot.value;
+                break;
+            }
+        }
     }
 
     //console.log("search term: " + searchTerm);
-    callback(searchTerm);
-};
-
-var isSlotValid = function isSlotValid (request, slotName){
-    var slot = request.intent.slots[slotName];
-    var slotValue;
-    if (slot && slot.value) {
-        slotValue = slot.value; //TODO Camel case
-        return slotValue;
-    } else {
-        return false;
-    }
+    callback(toTitleCase(searchTerm));
 };
 
 var searchWiki = function searchWiki (sq, callback) {
@@ -180,7 +167,10 @@ var getWikiResponse = function getWikiResponse(sq, wikiSearchURL, callback){
         console.log("Wiki Response:" + JSON.stringify(data, undefined, 2));
 
         var extract = getValueByRecursion(data, "extract");
-        if (extract.length > 0){
+        if (extract.length > 0 && isBadResponse(extract)){
+            speechOutput = 'I could not find an exact ' + sq  + '. Can you try again with a specific search?';
+            callback(speechOutput);
+        } else if (extract.length > 0){
             callback(extract);
         } else {
             speechOutput = 'I was unable to find ' + sq  + '. Please try another search';
@@ -188,6 +178,11 @@ var getWikiResponse = function getWikiResponse(sq, wikiSearchURL, callback){
         }
     });
 }
+
+var isBadResponse = function isBadResponse(dataStr){
+    var badStr = "may refer to:";
+    return (dataStr.indexOf(badStr) !== -1);
+};
 
 var getValueByRecursion = function getValueByRecursionF (dataJson, matchKey){
     if (dataJson.hasOwnProperty(matchKey)){
@@ -247,4 +242,8 @@ var buildResponse = function buildResponse(sessionAttributes, speechletResponse)
         sessionAttributes: sessionAttributes,
         response: speechletResponse
     };
+}
+
+var toTitleCase = function toTitleCase(str) {
+    return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
 }
