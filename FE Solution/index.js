@@ -35,7 +35,7 @@ function searchWiki(){
     sq = $('#sqInput').val();
     wikiOutput = wikiGET(toTitleCase(sq), function (output){
         //console.log("Output:" + output)
-        $("#output").text(removeFirstBraces(output));
+        $("#output").text(cleanUpResponse(output));
     });
 }
 
@@ -161,8 +161,20 @@ function testParser(){
     console.log(getValueByRecursion(t,"extract"));
 }
 
+var isBadResponse = function isBadResponse(dataStr){
+    var badStr = "may refer to:";
+    return dataStr.endsWith(badStr);
+};
 
-var removeFirstBraces = function removeFirstBraces(st){
-    console.log("removeFirstBraces");
+var removeFirstBracesInfo = function removeFirstBracesInfo(st){
     return st.replace(/^(.*?)\(.*?\)/, '$1');
-}
+};
+
+var replaceBadSSMLchars = function replaceBadSSMLchars(st){
+    return st.replace(/&/g, "and");
+};
+
+var cleanUpResponse = function cleanUpResponse(st){
+    var clnStr = replaceBadSSMLchars(st);
+    return removeFirstBracesInfo(clnStr)
+};

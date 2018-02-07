@@ -5,9 +5,9 @@
 'use strict';
 //=====================================================================================================*/
 
-var SKILL_NAME = "Wiki";
-var welcomeOutput = "Welcome to Wiki. Say something like Wiki San Francisco, or Who is Elon Musk, or Look up Aesthetic.";
-var welcomeReprompt = "Just say something like Wiki Chicago, or Look up Cricket, or Stop";
+var SKILL_NAME = "SmartWiki";
+var welcomeOutput = "Welcome to SmartWiki. Say something like SmartWiki San Francisco, or Who is Elon Musk, or Look up Aesthetic.";
+var welcomeReprompt = "Just say something like SmartWiki Chicago, or Look up Cricket, or Stop";
 var STOP_MESSAGE = "Goodbye!";
 var speechOutput;
 
@@ -79,22 +79,15 @@ var onIntent = function onIntent(intentRequest, session, callback) {
 }
 
 var getWelcomeResponse = function getWelcomeResponse(callback) {
-    //this.emit(':ask', welcomeOutput, welcomeReprompt);
     var speechOutput = welcomeOutput;
-
     var reprompt = welcomeReprompt;
-
     var header = SKILL_NAME;
-
     var shouldEndSession = false;
-
     var sessionAttributes = {
         "speechOutput" : speechOutput,
         "repromptText" : reprompt
     }
-
     callback(sessionAttributes, buildSpeechletResponse(header, speechOutput, reprompt, shouldEndSession))
-
 }
 
 var handleWikiSearchIntent = function handleWikiSearchIntent(intentRequest, session, callback) {
@@ -171,7 +164,7 @@ var getWikiResponse = function getWikiResponse(sq, wikiSearchURL, callback){
             speechOutput = 'I could not find an exact ' + sq  + '. Can you try again with a specific search?';
             callback(speechOutput);
         } else if (extract.length > 0){
-            callback(removeFirstBraces(extract));
+            callback(cleanUpResponse(extract));
         } else {
             speechOutput = 'I was unable to find ' + sq  + '. Please try another search';
             callback(speechOutput);
@@ -213,7 +206,7 @@ var buildSpeechletResponse = function buildSpeechletResponse(title, output, repr
         },
         shouldEndSession: shouldEndSession
     };
-}
+};
 
 var buildSpeechletResponseWithoutCard = function buildSpeechletResponseWithoutCard(output, repromptText, shouldEndSession) {
     return {
@@ -229,7 +222,7 @@ var buildSpeechletResponseWithoutCard = function buildSpeechletResponseWithoutCa
         },
         shouldEndSession: shouldEndSession
     };
-}
+};
 
 var buildResponse = function buildResponse(sessionAttributes, speechletResponse) {
     return {
@@ -237,17 +230,26 @@ var buildResponse = function buildResponse(sessionAttributes, speechletResponse)
         sessionAttributes: sessionAttributes,
         response: speechletResponse
     };
-}
+};
 
 var toTitleCase = function toTitleCase(str) {
     return str.replace(/\w*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1);});
-}
+};
 
 var isBadResponse = function isBadResponse(dataStr){
     var badStr = "may refer to:";
     return dataStr.endsWith(badStr);
 };
 
-var removeFirstBraces = function removeFirstBraces(st){
+var removeFirstBracesInfo = function removeFirstBracesInfo(st){
     return st.replace(/^(.*?)\(.*?\)/, '$1');
-}
+};
+
+var replaceBadSSMLchars = function replaceBadSSMLchars(st){
+    return st.replace(/&/g, "and");
+};
+
+var cleanUpResponse = function cleanUpResponse(st){
+    var clnStr = replaceBadSSMLchars(st);
+    return removeFirstBracesInfo(clnStr)
+};
